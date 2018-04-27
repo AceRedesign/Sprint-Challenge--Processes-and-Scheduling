@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <errno.h>
+#include <fcntl.h>
 #include <string.h>
 
 #define PROMPT "lambda-shell$ "
@@ -101,7 +103,48 @@ int main(void)
         #endif
         
         /* Add your code for implementing the shell's logic here */
-        
+        if(strcmp(args[0],"cd") == 0) {
+            if(args_count != 2) {
+                printf("cd using: cd dirname or cd path/dirname\n");
+            } else {
+                int status = chdir(args[1]);
+                if(status == -1) {
+                    perror("chdir");
+                }
+            }
+            continue;
+        }
+        int rc = fork();
+        if(rc < 0) {
+            fprintf(stderr, "Fork was a failure, now exiting program.\n");
+            continue;
+        } else if(rc == 0) {
+            int redirect = 0;
+            int redirect_index = 0;
+            int fd;
+            for(int i = 0; i < args_count; i++) {
+                if(strcmp(args[i], ">") == 0) {
+                    redirect = 1;
+                    redirect_index = i;
+                }
+            }
+            if(redirect) {
+                if(redirect_index == 0) {
+                    printf("'>' usage: > (output) must follow another argument.\n");
+                } else {
+                    char *output = strdup(args[redirect_index + 1]);
+                    args[redirect_index] = NULL;
+                    fd = open(output, O_WRONLY|O_CREAT);
+                    dup2(fd, 1);
+                }
+                redirect = 0;
+                redirect_index = 0;
+            }
+            execvp(args[0],args);
+
+        } else {
+            sleep(1);
+        }
     }
 
     return 0;
